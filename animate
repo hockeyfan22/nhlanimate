@@ -1,0 +1,136 @@
+---
+title: "scores"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+library(fuzzyjoin)
+library(stringr)
+library(ggthemes)
+library(ggrepel)
+library(extrafont)
+library(hrbrthemes)
+library(xkcd)
+library(lubridate)
+library(devtools)
+scores = read_csv("scores.csv")
+
+```
+
+```{r}
+
+scores = scores %>% 
+  mutate(Date = mdy(Date))
+  
+
+scores[sort(unique(scores$Home))] = NA
+
+for(i in 1:nrow(scores)) {
+  if(scores$Winner[i] == "H") {
+    scores[i, scores$Home[i]] = 2
+    scores[i, scores$Visitor[i]] = 0
+  } else if(scores$Winner[i] == "V") {
+    scores[i, scores$Visitor[i]] = 2
+    scores[i, scores$Home[i]] = 0
+  } else{
+    scores[i, c(scores$Visitor[i], prem$Home[i])] = 1
+  }
+}
+
+nhl_points = scores  %>% 
+  gather(Team, Points, `Anaheim Ducks`:`Winnipeg Jets`) %>% 
+  select(Date, Team, Points) %>% 
+  drop_na(Points)
+
+empty = data.frame(Date = rep(unique(scores$Date), each = 31),
+           Team = unique(scores$Home),
+           stringsAsFactors = FALSE)
+
+nhl_points = left_join(empty, nhl_points)
+
+## Joining, by = c("Date", "Team")
+
+#nhl_points[is.na(nhl_points)] = 0
+
+nhl_points = nhl_points %>% 
+  group_by(Team) %>% 
+  arrange(Date) %>% 
+  mutate(Points = cumsum(Points)) %>% 
+  ungroup() 
+  
+```
+
+```{r}
+scores[sort(unique(scores$Home))] = NA
+
+for(i in 1:nrow(scores)){
+  scores[i, scores$Home[i]] = scores$HG[i] - scores$VG[i]
+  scores[i, scores$Visitor[i]] = scores$VG[i] - scores$HG[i]
+}
+
+head(scores)
+
+nhl_gd = scores  %>% 
+  gather(Team, GD, `Anaheim Ducks`:`Winnipeg Jets`) %>% 
+  select(Date, Team, GD) %>% 
+  drop_na(GD)
+
+nhl_gd = left_join(empty, nhl_gd)
+
+## Joining, by = c("Date", "Team")
+
+nhl_gd[is.na(nhl_gd)] = 0
+
+nhl_gd = nhl_gd %>% 
+  group_by(Team) %>% 
+  arrange(Date) %>% 
+  mutate(GD = cumsum(GD)) %>% 
+  ungroup() 
+
+nhl_total = left_join(nhl_points, nhl_gd)
+
+nhl_total = nhl_total %>% 
+  group_by(Date) %>% 
+  arrange(desc(Points), desc(GD)) %>% 
+  mutate(Position = row_number()) %>% 
+  ungroup()
+
+Qual = function(x){
+  if(x <= 5){
+    y = "Top 5"
+  } else if(x <= 15){
+    y = "Playoff Team"
+  } else { 
+    y = "Non_Playoff"
+  }
+  return(y)
+}
+
+nhl_total = nhl_total %>% 
+  mutate(Status = map_chr(Position, Qual),
+         Status = factor(Status, levels = c("Top 5",
+                                            "Playoff Team",
+                                            "Non_Playoff"
+                                            )))  
+
+head(nhl_total)
+
+g = nhl_total %>%
+  arrange(Date) %>%
+  ggplot(aes(GD, Points)) +
+  geom_label(aes(label = Team, fill = Status), label.padding = unit(0.1, "lines")) +
+  theme_minimal() +
+  labs(title = "NHL Team Points vs Goal Difference 18/19",
+  subtitle =  "Date: {frame_time}") +
+  scale_colour_brewer(type = "qual",
+  palette = "Paired") +
+  theme(legend.position = "bottom") +
+  transition_time(Date)
+
+animate(g, nframes = 200, fps = 2)
