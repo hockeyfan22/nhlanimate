@@ -1,0 +1,42 @@
+---
+title: "season"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+library(fuzzyjoin)
+library(stringr)
+library(ggthemes)
+library(ggrepel)
+library(extrafont)
+library(hrbrthemes)
+library(xkcd)
+NHL = read_csv(here("season.csv"))
+```
+```{r}
+#just leafs - look at age and points %
+
+NHL %>% 
+  filter(Team == "Toronto Maple Leafs" | Team == "Tampa Bay Lightning" | Team == "Montreal Canadiens" | Team == "Boston Bruins" | Team == "Buffalo Sabres" | Team == "Florida Panthers" | Team == "Detroit Red Wings" | Team == "Ottawa Senators" ) %>% 
+  ggplot(aes(Year,`PTS%`, color = Team)) +
+  geom_line() +
+  facet_grid(~Team) +
+ theme(legend.position="none")
+```
+
+```{r}
+NHL %>% 
+  filter(Team == "Toronto Maple Leafs" | Team == "Tampa Bay Lightning" | Team == "Montreal Canadiens" | Team == "Boston Bruins" | Team == "Buffalo Sabres" | Team == "Florida Panthers" | Team == "Detroit Red Wings" | Team == "Ottawa Senators" ) %>% 
+  ggplot(aes(Year,`AvAge`, color = Team)) +
+  geom_line() +
+  facet_grid(~Team)
+```
+
